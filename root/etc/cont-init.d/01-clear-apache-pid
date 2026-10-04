@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bash
+set -e
+
+# Container initialization runs before Apache; no PID from a previous run is valid.
+source /etc/apache2/envvars
+rm -f -- "$APACHE_PID_FILE"
