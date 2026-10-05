@@ -1,4 +1,4 @@
-dimaip/typo3-legacy
+ghcr.io/dimaip/docker-typo3-legacy
 ===================================
 
 **Just some image to run ancient TYPO3 projects on**
@@ -8,13 +8,16 @@ A Docker image based on Ubuntu, serving PHP 5.5 running as Apache Module. Useful
 Tags
 -----
 
-* latest: Ubuntu 14.04 (LTS), Apache 2.4, PHP 5.5.9 with support for setting `error_reporting`
+* master / latest: Ubuntu 14.04 (LTS), Apache 2.4, PHP 5.5.9 with support for setting `error_reporting`
+* sha-<commit>: the image built from a specific commit
+
+GitHub Actions builds and tests the image on pull requests, then publishes to GitHub Container Registry on pushes to `master`. Builds can also be triggered manually. Docker Hub's `dimaip/typo3-legacy` image is no longer updated.
 
 Usage
 ------
 
 ```
-$ docker run -d -P bylexus/apache-php55
+$ docker run -d -P ghcr.io/dimaip/docker-typo3-legacy:master
 ```
 
 With all the options:
@@ -23,7 +26,7 @@ With all the options:
 $ docker run -d -p 8080:80 \
     -v /home/user/webroot:/var/www \
     -e PHP_ERROR_REPORTING='E_ALL & ~E_STRICT' \
-    docker run -d -P bylexus/apache-php55
+    ghcr.io/dimaip/docker-typo3-legacy:master
 ```
 
 * `-v [local path]:/var/www` maps the container's webroot to a local path
