@@ -1,0 +1,66 @@
+name: Build and publish Docker image
+
+on:
+  push:
+    branches: ['master']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ghcr.io/dimaip/docker-typo3-legacy
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Build image
+        run: |
+          docker build --platform linux/amd64 \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --tag "${IMAGE_NAME}:master" \
+            --tag "${IMAGE_NAME}:latest" \
+            --tag "${IMAGE_NAME}:sha-${GITHUB_SHA}" .
+
+      - name: Test startup and restart with a stale Apache PID
+        shell: bash
+        run: |
+          trap 'docker rm -fv apache-pid-regression' EXIT
+          docker run -d --name apache-pid-regression --entrypoint /bin/bash \
+            "${IMAGE_NAME}:sha-${GITHUB_SHA}" -c \
+            'printf "1\n" > /var/run/apache2/apache2.pid; printf "apache-pid-regression-ok\n" > /var/www/index.html; exec /init'
+          for startup in initial restart; do
+            if [ "$startup" = restart ]; then
+              docker restart apache-pid-regression
+            fi
+            ready=false
+            for attempt in {1..30}; do
+              if [ "$(docker exec apache-pid-regression curl -fsS --max-time 2 http://127.0.0.1/ 2>/dev/null)" = apache-pid-regression-ok ]; then
+                ready=true
+                break
+              fi
+              sleep 1
+            done
+            if [ "$ready" != true ]; then
+              docker logs apache-pid-regression
+              exit 1
+            fi
+          done
+
+      - name: Log in to GitHub Container Registry
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish image
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        run: docker push --all-tags "$IMAGE_NAME"
